@@ -1,0 +1,4 @@
+Зависимости - qt4-qmake libqt4-dev
+Компилить - qmake && make debug (release будет работать чуть попозже)
+Запускать - ./botfight_debug
+
