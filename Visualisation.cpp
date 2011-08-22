@@ -12,16 +12,17 @@ Visualisation::Visualisation(QVector<QVector<QPointF> > map_, QWidget *parent):
 
     addBotBtn = new QPushButton("Add bot");
     togglePauseBtn = new QPushButton("Pause visualisation");
+    connect(addBotBtn, SIGNAL(clicked()), this, SLOT(addBot()));
+    connect(togglePauseBtn, SIGNAL(clicked()), fightArena, SLOT(togglePause()));
     QHBoxLayout *visControls = new QHBoxLayout();
     visControls->addWidget(addBotBtn);
-    connect(addBotBtn, SIGNAL(clicked()), this, SLOT(addBot()));
     visControls->addWidget(togglePauseBtn);
 
     botControlPanel = new QGridLayout();
     botControlPanel->addWidget(new QLabel("Name"), 0, 0);
-    botControlPanel->addWidget(new QLabel("Control"), 0, 1);
+    botControlPanel->addWidget(new QLabel("Control\n(AI/Manual)"), 0, 1);
     botControlPanel->addWidget(new QLabel("Show"), 0, 2);
-    botControlPanel->addWidget(new QLabel("Role"), 0, 3);
+    botControlPanel->addWidget(new QLabel("Role\n(Runner/Hunter)"), 0, 3);
     botControlPanel->addWidget(new QLabel("Delete"), 0, 4);
     botControlPanel->addWidget(new QLabel("State"), 0, 5);
 
@@ -58,7 +59,7 @@ Visualisation::Visualisation(QVector<QVector<QPointF> > map_, QWidget *parent):
 
     QGridLayout *mainLayout = new QGridLayout();
     mainLayout->addWidget(fightArena, 0, 0);
-    mainLayout->addLayout(botControlPanel, 0, 1);
+    mainLayout->addLayout(botControlPanel, 0, 1, Qt::AlignTop);
     mainLayout->addLayout(visControls, 1, 1);
     setLayout(mainLayout);
 }

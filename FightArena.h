@@ -31,19 +31,12 @@ private:
     void keyPressEvent(QKeyEvent *);
     void keyReleaseEvent(QKeyEvent *);
 
-    void handleKeys();
-
     QVector<QVector<QPointF > > map;// Contains just the map, shoudn't be changed during the visualisation. Changed once in the constructor to add the screen edges.
     QHash<int, bool> pressedKeys;// This map contains the states of the keys, to support key combinations(e.g. to rotate and move simultaneously)
 
     QTimer* timer;// Calls makeMove
     QVector<Bot*> bots;
     QVector<bool> showBot;// Show bot and it's discovered area on the map.
-#ifdef DEBUG
-    mutable QVector<QPointF> dbgPivots;
-    mutable QVector<QPointF> dbgConnComp;
-    mutable QVector<QVector<int> > dbgCompNumber;
-#endif
 
 };
 

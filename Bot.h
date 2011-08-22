@@ -14,9 +14,14 @@ public:
         int width, int height,
         QVector<QVector<QPointF> > map_,
         int id_);
-    int id;
+    int getID() const;
     QPointF getPos() const;
     qreal getAngle() const;
+    qreal getFOVAngle() const;
+    qreal getFOVDistance() const;
+    int getRole() const;
+    QImage getImage() const;
+    bool wallBetween(const QPointF &a, const QPointF &b) const;
 
 signals:
     void queryBots(Bot *bot, QVector<Bot *> *result);
@@ -33,6 +38,9 @@ private:
 #ifdef DEBUG
 public:
 #endif
+    void updateEnemies();
+    void addOthers(const QPointF &, double);
+
 
     void makeAIMove();// Follows the path in the "path" variable
     void makeManualMove();// Tries to move and returns true if could. If couldn't, tries to rotate.
@@ -46,21 +54,21 @@ public:
     void updateVirtualWalls();
 
     void updatePotential();
+    void updateOthers();
     void killkillkill();
 
     QPair<QPointF, QPointF> getVertexPivots(const QPointF &a, const QPointF &b, const QPointF &c) const;// Calculates the pivots for line [a, b][b, c]. The first element in the return value will always be the "inner" point
     QVector<QPointF> getPivots(const QVector<QPointF> &, bool mapPivots = false) const;// Calculates pivots for the polyline(might be enclosed). Additional parameter is for correct handling of map pivots generating.
     QHash<QPointF, QVector<QPointF> > getGraph(const QPointF &startPos, const QPointF &targetPos) const;// Calculates the visibility graph and returns it
     QVector<QPointF> getPath(const QPointF &startPos, const QPointF &targetPos) const;// Calculates the path and returns it
-    bool wallOnPathTo(const QPointF &a) const;// Returns true if there's a wall on the line from curPoint to a
     void addVisitsCount(const QPointF &p, qreal value = 20.0);//Adds visits count to the point and its neighbours(affection radius is set in the method).
 
-
+    int fieldWidth, fieldHeight;
     qreal moveSpeed, rotSpeed;// rotSpeed is in radians
     qreal fovDist, fovAngle;// FOV(field of view) is a circle sector with the radius fovDist and the central angle fovAngle(in radians)
     QPointF curPos;
     qreal curAngle;
-
+    int id;
     qreal pivotOffset; // A parameter for conflicts exclusion. Path should be binded not to polygonal chains' vertices, but to the nearby located point, soThis parameter sets there points' offset from the vertices.
     qreal cellSize;// The discovered zones edges are being drawn as circles, so this parameter affects "smoothing". Also, it significantly affects the perfomance.
 
@@ -91,10 +99,13 @@ public:
 
     QVector<QVector<qreal> > potential;// The potential heuristic is formed by the nearby located undiscovered point(they increase it) and by the nearby located points' visits(they decrease it).
     QVector<QVector<int> > visits;// Not exactly the visits count, but comparatively to other points, it's the time the bot was close to the point.
+    QVector<QVector<qreal> > others;// Influence of other bots.
+
     QVector<QVector<QPointF > > map;// Contains just the map, shoudn't be changed during the visualisation. Changed once in the constructor to add the screen edges.
     QVector<QPointF> mapPivots;// Initialized at the startup, for the better perfomance.
     QVector<QVector<bool> > isDiscovered;// The Visualisation field is a grid, so some points of this grid are already discovered, some not
                                          // To convert grid nodes into real coordinates, you'll just multiply it by cellSize.
+    QVector<QVector<bool> > isReached;
     QVector<QPointF> path;// Contains the path to targetPos
 
     QPointF targetPos;// Program will follow the path to this point

@@ -18,6 +18,7 @@ Bot::Bot(qreal moveSpeed_, qreal rotSpeed_, // in degrees
     curPos(startPos), curAngle(degr2rad(startAngle)),
     map(map_),
     id(id_),
+    fieldWidth(width), fieldHeight(height),
     pivotOffset(8.0), cellSize(8.0),
     control(AIControl),
     state(NoState),
@@ -45,6 +46,8 @@ Bot::Bot(qreal moveSpeed_, qreal rotSpeed_, // in degrees
 
     visits = QVector<QVector<int> > (cellsx, QVector<int> (cellsy, 0));
     potential = QVector<QVector<qreal> > (cellsx, QVector<qreal> (cellsy, 0.0));
+    isReached = isDiscovered;
+    others = QVector<QVector<qreal> > (cellsx, QVector<qreal> (cellsy, 0.0));
 
     QPointF p00 = QPointF(0, 0), p10 = QPointF(width - 1, 0), p01 = QPointF(0, height - 1), p11 = QPointF(width - 1, height - 1);
     QVector<QPointF> edge;
@@ -465,10 +468,14 @@ bool Bot::exploreMap()
     {
         for (int j = styp; j <= fnyp; j++)
         {
-            if (!isDiscovered[i][j] && fitsInPie(cellSize * QPointF(i, j), curPos, fovDist, curAngle, fovAngle) && !wallOnPathTo(cellSize * QPointF(i, j)))
+            if (!isDiscovered[i][j] && fitsInPie(cellSize * QPointF(i, j), curPos, fovDist, curAngle, fovAngle))
             {
-                isDiscovered[i][j] = true;
-                discovered = true;
+                isReached[i][j] = true;
+                if (!wallBetween(curPos, cellSize * QPointF(i, j)))
+                {
+                    isDiscovered[i][j] = true;
+                    discovered = true;
+                }
             }
         }
     }
@@ -517,7 +524,7 @@ void Bot::makeManualMove()
         }
     }
 }
-
+/*
 bool Bot::wallOnPathTo(const QPointF &b) const
 {
     QLineF line(curPos, b);
@@ -534,42 +541,67 @@ bool Bot::wallOnPathTo(const QPointF &b) const
     }
     return false;
 }
-
+*/
 void Bot::updatePotential()
 {
-    int prob = 100;//%
+    updateOthers();
+
+    double minPotential = -5000.0; // potential for undiscovered points
+    potential.fill(QVector<double> (potential[0].size(), minPotential));
+
+    int randomAffectionRadius = fovDist / 2.0; // Some points will be chosen randomly
+    int affectionRadius = fovDist / 5.0; // And some will be chosen definetely
+    int tries = 20;
     for (int i = 0; i < potential.size(); i++)
     {
         for (int j = 0; j < potential[0].size(); j++)
         {
             if (!isDiscovered[i][j])
-            {
-                potential[i][j] = -1000000.0;
-            }
+                continue;
             if (!(isDiscovered[i][j] &&
                 i > 0 && i < potential.size() - 1 &&
                 j > 0 && j < potential[0].size() - 1 &&
-                isDiscovered[i - 1][j] && isDiscovered[i + 1][j] &&
+                isDiscovered[i - 1][j] && isDiscovered[i + 1][j] && //
                 isDiscovered[i][j - 1] && isDiscovered[i][j + 1]))
             {
                 continue;
             }
             potential[i][j] = 0.0;
-            for (int q = qMax(i - 5, 0); q < qMin(potential.size(), i + 5); q++)
+            int potRadius = affectionRadius / cellSize;
+            for (int q = - potRadius; q < potRadius; q++)
             {
-                for (int w = qMax(j - 5, 0); w < qMin(potential[0].size(), j + 5); w++)
+                if (i + q < 0 || i + q >= potential.size())
+                    continue;
+                for (int w = - potRadius; w < potRadius; w++)
                 {
-                    if (i == q && j == w)
+                    if (j + w < 0 || j + w >= potential[0].size())
                         continue;
-                    if (!isDiscovered[q][w])
+                    if (!isDiscovered[i + q][j + w])
                     {
-                        if (qrand() % 100 >= prob)
-                            continue;
-                        potential[i][j] += 10.0 / qSqrt((q - i) * (q - i) + (w - j) * (w - j) + 0.0);
+                        if (!wallBetween(cellSize * QPointF(q + i, w + j), cellSize * QPointF(i, j)))
+                            potential[i][j] += 10.0 / (qAbs(q) + 0.01) + 10.0 / (qAbs(w) + 0.01);
                     }
                 }
             }
+
+            int potRandRadius = randomAffectionRadius / cellSize;
+            for (int t = 0; t < tries; t++)
+            {
+                int tx = rand() % (2 * potRandRadius);
+                int ty = rand() % (2 * potRandRadius);
+                int cx = i - potRandRadius + tx;
+                int cy = j - potRandRadius + ty;
+                if (cx >= 0 && cx < potential.size() &&
+                    cy >= 0 && cy < potential[0].size() &&
+                    !isDiscovered[cx][cy])
+                {
+                    if (!wallBetween(cellSize * QPointF(cx, cy), cellSize * QPointF(i, j)))
+                        potential[i][j] += 10.0 / (qAbs(i - cx) + 0.01) + 10.0 / (qAbs(j - cy) + 0.01);
+                }
+
+            }
             potential[i][j] -= visits[i][j];
+            potential[i][j] += others[i][j];
         }
     }
 }
@@ -577,6 +609,34 @@ void Bot::updatePotential()
 QPointF Bot::getAITarget() const
 {
     int mi = -1, mj = -1;
+    // Step 1. Searching for the point with the hightst potential in the given radius.
+    int searchRadius = fovDist;
+    for (int curRadius = searchRadius; curRadius <= fieldWidth; curRadius += searchRadius)
+    {
+        int sx = qMax(0, int((curPos.x() - curRadius) / cellSize));
+        int ex = qMin(potential.size(), int((curPos.x() + curRadius) / cellSize));
+        int sy = qMax(0, int((curPos.y() - curRadius) / cellSize));
+        int ey = qMin(potential[0].size(), int((curPos.y() + curRadius) / cellSize));
+
+        for (int i = sx; i < ex; i++)
+        {
+            for (int j = sy; j < ey; j++)
+            {
+                if (isDiscovered[i][j] && (mi == -1 || mj == -1 || potential[i][j] > potential[mi][mj]))
+                {
+                    if (!wallBetween(curPos, cellSize * QPointF(i, j)))
+                    {
+                        mi = i;
+                        mj = j;
+                    }
+                }
+            }
+        }
+        if (potential[mi][mj] > 0.0) // if point's potential is less than zero, this point has already been visited.
+            return cellSize * QPointF(mi, mj);
+    }
+
+    // Step 2. Searching for the point with the higwst potential on the full map
     for (int i = 0; i < potential.size(); i++)
     {
         for (int j = 0; j < potential[0].size(); j++)
@@ -588,36 +648,7 @@ QPointF Bot::getAITarget() const
             }
         }
     }
-    int ci = mi, cj = mj;
-    qreal maxpath = 0.0;
-    QVector<QPointF> mp = getPath(curPos, cellSize * QPointF(mi, mj));
-    for (int i = 0; i < mp.size() - 1; i++)
-        maxpath += distance(mp[i], mp[i + 1]);
-
-    for (int i = 0; i < potential.size(); i++)
-    {
-        for (int j = 0; j < potential[0].size(); j++)
-        {
-            if (isDiscovered[i][j])
-            {
-                if (potential[i][j] >= 0.95 * potential[mi][mj] &&
-                    distance(curPos, cellSize * QPointF(i, j)) > 1.0)//epsilon
-                {
-                    qreal curpath = 0.0;
-                    QVector<QPointF> cp = getPath(curPos, cellSize * QPointF(i, j));
-                    for (int e = 0; e < cp.size() - 1; e++)
-                        curpath += distance(cp[e], cp[e + 1]);
-                    if (curpath < maxpath)
-                    {
-                        ci = i;
-                        cj = j;
-                        maxpath = curpath;
-                    }
-                }
-            }
-        }
-    }
-    return cellSize * QPointF(ci, cj);
+    return cellSize * QPointF(mi, mj);
 }
 
 void Bot::makeAIMove()
@@ -630,21 +661,52 @@ void Bot::makeAIMove()
     }
     qDebug() << " -------" << endl;*/
 #endif
-    if (role == Hunter)
+
+
+    for (QHash<Bot *, int>::iterator it = enemiesVisible.begin(); it != enemiesVisible.end(); ++it)
     {
-        if (enemiesVisible.size() > 0)
-        {
-            state = FollowPathState;
-            targetPos = enemiesVisible.begin().key()->getPos();
-            path = getPath(curPos, targetPos);
-            state = FollowPathState;
-        }
+//        if (it.value() == 1) //new bot
+ //       {
+            if (role == Hunter)
+            {
+                if (it.key()->getRole() == Hunter)
+                {
+                    state = FollowPathState;
+                    path.clear();
+                    path.append(curPos);
+                    path.append(it.key()->getPos());
+                    targetPos = path[1];
+                    addOthers(it.key()->getPos(), 500);
+                }
+                else
+                {
+                    state = FollowPathState;
+                    path.clear();
+                    path.append(curPos);
+                    path.append(it.key()->getPos());
+                    targetPos = path[1];
+                    addOthers(it.key()->getPos(), 500);
+                }
+            }
+            else
+            {
+                if (it.key()->getRole() == Hunter)
+                {
+                    if (it.value() == 1)
+                        state = NoState;
+                    addOthers(it.key()->getPos(), -1000);
+                }
+            }
+//        }
     }
+
+
+
     if (state == FollowPathState)
     {
         if (path.size() == 0) // We haven't found a path(or it is incorrect)
         {
-            addVisitsCount(targetPos);// We lower target point's potential, and its probality to be chosen again
+            addVisitsCount(targetPos, 50);// We lower target point's potential, and its probality to be chosen again
             state = NoState;// Another chance
         }
         else
@@ -667,7 +729,6 @@ void Bot::makeAIMove()
     }
     else if (state == NoState)
     {
-        updatePotential();
         targetPos = getAITarget();
         path = getPath(curPos, targetPos);
         state = FollowPathState;
@@ -776,7 +837,7 @@ bool Bot::makeMoveByLine(const QPointF &a, const QPointF &b)
 
 void Bot::addVisitsCount(const QPointF &p, qreal value)
 {
-    int affectionRadius = 3;
+    int affectionRadius = 4; // in grid nodes
     int cx = p.x() / cellSize, cy = p.y() / cellSize;
     for (int q = -affectionRadius; q <= affectionRadius; q++)
     {
@@ -786,7 +847,8 @@ void Bot::addVisitsCount(const QPointF &p, qreal value)
         {
             if (cy + w < 0 || cy + w >= potential[0].size())
                 continue;
-            visits[cx + q][cy + w] += value / (abs(q) + abs(w) + 1.0);
+            if (!wallBetween(p, cellSize * QPointF(cx + q, cy + w)))
+                visits[cx + q][cy + w] += value / (qAbs(q) + 0.1) + value / (qAbs(w) + 0.1);
         }
     }
     visits[cx][cy] += value;
@@ -812,6 +874,8 @@ void Bot::toggleControl()
 void Bot::makeMove()
 {
     exploreMap();
+    updateEnemies();
+    updatePotential();
     if (role == Hunter)
         killkillkill();
     if (control == ManualContol)
@@ -832,6 +896,159 @@ qreal Bot::getAngle() const
 
 void Bot::killkillkill()
 {
+    for (QHash<Bot *, int>::iterator it = enemiesVisible.begin(); it != enemiesVisible.end(); ++it)
+    {
+        if (it.value() > 150)
+            emit botKilled(it.key()->id);
+    }
+}
+
+QImage Bot::getImage() const
+{
+    QImage ans(fieldWidth, fieldHeight, QImage::Format_ARGB32);
+    ans.fill(0);
+    QPainter p(&ans);
+
+    QColor botColor = QColor::fromHsv(id * 20, 200, 200);
+    QColor botColorT = botColor;
+    botColorT.setAlpha(20);
+    QPen circlePen;
+    if (role == Hunter)
+        circlePen = QPen(Qt::red, 3);
+    else
+        circlePen = QPen(Qt::green, 3);
+
+
+    QPainterPath posMark;
+    qreal markWidth = 20, markHeight = 10;
+    QPolygonF triangle;
+    triangle << QPointF(-markWidth / 2, markHeight / 2) << QPointF(-markWidth / 2, -markHeight / 2) << QPointF(markWidth / 2, 0);
+    triangle << triangle.front();
+    QMatrix rotM;
+    rotM.translate(curPos.x(), curPos.y());
+    rotM.rotate(-rad2degr(curAngle));
+    triangle = rotM.map(triangle);
+    posMark.addPolygon(triangle);
+
+    p.setPen(Qt::transparent);
+    p.setBrush(Qt::transparent);
+    p.drawRect(0, 0, fieldWidth, fieldHeight);
+
+    p.setPen(botColorT);
+    p.setBrush(botColorT);
+    for (int i = 0; i < isDiscovered.size(); i++)
+    {
+        for (int j = 0; j < isDiscovered[i].size(); j++)
+        {
+            if (isDiscovered[i][j])
+            {
+                p.drawEllipse(cellSize * QPointF(i, j), cellSize, cellSize);
+            }
+        }
+    }
+
+    p.setPen(botColor);
+    p.setBrush(botColor);
+    p.drawPath(posMark);
+
+    p.setBrush(Qt::transparent);
+    p.setPen(circlePen);
+    p.drawEllipse(curPos, 20, 20);
+
+    p.setPen(Qt::black);
+    p.setPen(Qt::black);
+    p.drawText(curPos + QPointF(5, 5), QString::number(id));
+
+
+    p.setPen(Qt::magenta);// Drawing the FOV
+    p.setBrush(Qt::transparent);
+    p.drawPie(QRectF(curPos - QPointF(fovDist, fovDist), curPos + QPointF(fovDist, fovDist)), rad2degr(curAngle - fovAngle / 2) * 16, rad2degr(fovAngle) * 16);
+
+    p.setPen(botColor);
+    p.setBrush(botColor);
+    p.drawEllipse(targetPos, 5, 5);
+#ifdef DEBUGsfdf
+    p.setPen(Qt::black);
+    for (int i = 0; i < potential.size(); i += 4)
+    {
+        for (int j = 0; j < potential[i].size(); j += 2)
+        {
+            double mp = -10000.0;
+            for (int q = i; q < i + 4 && q < potential.size(); q++)
+            {
+                for (int w = j; w < j + 2 && w < potential[0].size(); w++)
+                {
+                    mp = qMax(mp, potential[q][w]);
+                }
+            }
+            p.drawText(cellSize * i, cellSize * j, QString::number(int(mp)));
+        }
+    }
+#endif
+    if (role == Runner)
+    {
+        for (int i = 0; i < potential.size(); i += 4)
+        {
+            for (int j = 0; j < potential[i].size(); j += 2)
+            {
+                if (potential[i][j] > -5000)
+                    p.drawText(cellSize * i, cellSize * j, QString::number(int(potential[i][j])));
+            }
+        }
+    }
+    return ans;
+}
+
+qreal Bot::getFOVAngle() const
+{
+    return fovAngle;
+}
+
+qreal Bot::getFOVDistance() const
+{
+    return fovDist;
+}
+
+int Bot::getID() const
+{
+    return id;
+}
+
+void Bot::updateOthers()
+{
+    for (int i = 0; i < others.size(); i++)
+    {
+        for (int j = 0; j < others[0].size(); j++)
+        {
+            others[i][j] *= 0.9;
+        }
+    }
+}
+
+int Bot::getRole() const
+{
+    return role;
+}
+
+bool Bot::wallBetween(const QPointF &a, const QPointF &b) const
+{
+    QLineF line(a, b);
+    QPointF trash;
+    for (int i = 0; i < map.size(); i++)
+    {
+        for (int j = 0; j < map[i].size() - 1; j++)
+        {
+            if (QLineF(map[i][j], map[i][j + 1]).intersect(line, &trash) == QLineF::BoundedIntersection)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void Bot::updateEnemies()
+{
     QVector<Bot *> enemies;
     QHash<Bot *, int> ev;
     emit queryBots(this, &enemies);
@@ -840,8 +1057,31 @@ void Bot::killkillkill()
     for (QHash<Bot *, int>::iterator it = ev.begin(); it != ev.end(); ++it)
     {
         it.value() += enemiesVisible[it.key()];
-        if (it.value() > 10)
-            emit botKilled(it.key()->id);
     }
     enemiesVisible = ev;
 }
+
+void Bot::addOthers(const QPointF &p, double c)
+{
+    double affectionRadius = fovDist;
+    int cx = p.x() / cellSize;
+    int cy = p.y() / cellSize;
+    int r = affectionRadius / cellSize;
+    for (int q = -r; q < r; q++)
+    {
+        if (cx + q < 0 || cx + q >= potential.size())
+            continue;
+        for (int w = -r; w < r; w++)
+        {
+            if (cy + w < 0 || cy + w >= potential[0].size())
+                continue;
+            others[cx + q][cy + w] += c  - c / (2 * r) * (qAbs(q) + qAbs(w));
+        }
+    }
+}
+
+
+
+
+
+

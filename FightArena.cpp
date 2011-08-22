@@ -34,45 +34,17 @@ void FightArena::keyReleaseEvent(QKeyEvent *e)
 
 void FightArena::paintEvent(QPaintEvent *)
 {
-    QVector<QColor> botColors;
-    QVector<QPainterPath> marks;
-
-    for (int i = 0; i < bots.size(); i++)
-    {
-
-        QPointF botPos = bots[i]->getPos();
-        qreal botAngle = bots[i]->getAngle();
-        QPainterPath posMark;
-        qreal markWidth = 20, markHeight = 10;
-        QPolygonF triangle;
-        triangle << QPointF(-markWidth / 2, markHeight / 2) << QPointF(-markWidth / 2, -markHeight / 2) << QPointF(markWidth / 2, 0);
-        triangle << triangle.front();
-        QMatrix rotM;
-        rotM.translate(botPos.x(), botPos.y());
-        rotM.rotate(-rad2degr(botAngle));
-        triangle = rotM.map(triangle);
-        posMark.addPolygon(triangle);
-        posMark.addText(botPos + QPointF(5, 5), QFont(), QString::number(bots[i]->id));
-        marks.push_back(posMark);
-
-        botColors.push_back(QColor::fromHsv(30 * i, 200, 200));
-    }
-
+    QImage img(width(), height(), QImage::Format_ARGB32);
+    QPainter p(&img);
 
     QPen bkgPen(Qt::white);
-    QPen posMarkPen(Qt::green);
     QPen mapPen(QColor(45, 0, 179), 3);
 
     QBrush bkgBrush(Qt::white);
-    QBrush posMarkBrush(Qt::green);
-
-    QImage img(width(), height(), QImage::Format_RGB32);
-    QPainter p(&img);// Drawing on the widget directly causes perfomance loss.
-
 
     p.setPen(bkgPen);
     p.setBrush(bkgBrush);
-    p.drawRect(QRectF(0, 0, 799, 599));
+    p.drawRect(0, 0, 800, 600);
 
     p.setPen(mapPen);
     for (int i = 0; i < map.size(); i++)
@@ -82,58 +54,13 @@ void FightArena::paintEvent(QPaintEvent *)
             p.drawLine(QLineF(map[i][j], map[i][j + 1]));
         }
     }
+
     for (int i = 0; i < bots.size(); i++)
     {
-        p.setPen(botColors[i]);
-        p.setBrush(botColors[i]);
-        p.drawPath(marks[i]);
-#ifdef DEBUG
-        p.setPen(Qt::magenta);// Drawing the FOV
-        p.setBrush(Qt::transparent);
-        p.drawPie(QRectF(bots[i]->getPos() - QPointF(bots[i]->fovDist, bots[i]->fovDist), bots[i]->curPos + QPointF(bots[i]->fovDist, bots[i]->fovDist)), rad2degr(bots[i]->curAngle - bots[i]->fovAngle / 2) * 16, rad2degr(bots[i]->fovAngle) * 16);
-        QColor curCol = botColors[i];
-        curCol.setAlpha(30);
-        p.setPen(curCol);
-        p.setBrush(curCol);
-        for (int q = 0; q < bots[i]->isDiscovered.size(); q++)
-        {
-            for (int w = 0; w < bots[i]->isDiscovered[q].size(); w++)
-            {
-                if (bots[i]->isDiscovered[q][w])
-                {
-                    p.drawEllipse(bots[i]->cellSize * QPointF(q, w), bots[i]->cellSize, bots[i]->cellSize);
-                }
-            }
-        }
-#endif
+        p.drawImage(QPointF(0, 0), bots[i]->getImage());
     }
-
     QPainter q(this);
     q.drawImage(QPointF(0, 0), img);// And finally..Drawing the whole image on the widget.
-}
-
-void FightArena::handleKeys()
-{
-    bool needsDiscover = false;
-    if (pressedKeys[Qt::Key_Left])
-    {
-        //curAngle += rotSpeed;
-        needsDiscover = true;
-    }
-    if (pressedKeys[Qt::Key_Right])
-    {
-        //curAngle -= rotSpeed;
-        needsDiscover = true;
-    }
-    if (pressedKeys[Qt::Key_Up])
-    {
-        //makeManualMove();
-        needsDiscover = true;
-    }
-    if (needsDiscover)
-    {
-        //exploreMap();
-    }
 }
 
 void FightArena::togglePause()
@@ -175,7 +102,7 @@ void FightArena::deleteBot(int id)
 {
     for (int i = 0; i < bots.size(); i++)
     {
-        if (bots[i]->id == id)
+        if (bots[i]->getID() == id)
         {
             delete bots[i];
             bots.remove(i);
@@ -190,7 +117,7 @@ void FightArena::toggleBotControl(int id)
 {
     for (int i = 0; i < bots.size(); i++)
     {
-        if (bots[i]->id == id)
+        if (bots[i]->getID() == id)
         {
             bots[i]->toggleControl();
         }
@@ -201,7 +128,7 @@ void FightArena::toggleBotRole(int id)
 {
     for (int i = 0; i < bots.size(); i++)
     {
-        if (bots[i]->id == id)
+        if (bots[i]->getID() == id)
         {
             bots[i]->toggleRole();
         }
@@ -214,7 +141,8 @@ void FightArena::giveBots(Bot* bot, QVector<Bot *> *result)
     {
         if (bots[i] == bot)
             continue;
-        if (fitsInPie(bots[i]->getPos(), bot->getPos(), bot->fovDist, bot->getAngle(), bot->fovAngle) && !bot->wallOnPathTo(bots[i]->getPos()))
+        if (fitsInPie(bots[i]->getPos(), bot->getPos(), bot->getFOVDistance(), bot->getAngle(), bot->getFOVAngle()) &&
+            !bot->wallBetween(bot->getPos(), bots[i]->getPos()))
         {
             result->push_back(bots[i]);
         }
@@ -225,4 +153,6 @@ void FightArena::giveKeys(QHash<int, bool> *result)
 {
     *result = pressedKeys;
 }
+
+
 
