@@ -635,7 +635,7 @@ QPointF Bot::getAITarget() const
         if (potential[mi][mj] > 0.0) // if point's potential is less than zero, this point has already been visited.
             return cellSize * QPointF(mi, mj);
     }
-
+    Q_ASSERT(mi != -1);
     // Step 2. Searching for the point with the higwst potential on the full map
     for (int i = 0; i < potential.size(); i++)
     {
@@ -648,59 +648,34 @@ QPointF Bot::getAITarget() const
             }
         }
     }
+
     return cellSize * QPointF(mi, mj);
 }
 
 void Bot::makeAIMove()
 {
-#ifdef DEBUG
-    /*qDebug() << state << endl;
-    if (state == FollowPathState)
+    if (role == Hunter)
     {
-        qDebug() << path << endl;
-    }
-    qDebug() << " -------" << endl;*/
-#endif
-
-
-    for (QHash<Bot *, int>::iterator it = enemiesVisible.begin(); it != enemiesVisible.end(); ++it)
-    {
-//        if (it.value() == 1) //new bot
- //       {
-            if (role == Hunter)
+        for (QHash<Bot *, int>::iterator it = enemiesVisible.begin(); it != enemiesVisible.end(); ++it)
+        {
+            state = FollowPathState;
+            if (it.key()->getRole() == Hunter)
             {
-                if (it.key()->getRole() == Hunter)
-                {
-                    state = FollowPathState;
-                    path.clear();
-                    path.append(curPos);
-                    path.append(it.key()->getPos());
-                    targetPos = path[1];
-                    addOthers(it.key()->getPos(), 500);
-                }
-                else
-                {
-                    state = FollowPathState;
-                    path.clear();
-                    path.append(curPos);
-                    path.append(it.key()->getPos());
-                    targetPos = path[1];
-                    addOthers(it.key()->getPos(), 500);
-                }
+                path.clear();
+                path.append(curPos);
+                path.append(it.key()->getPos());
+                targetPos = path[1];
+                break; // First - Hunters, then Runners
             }
             else
             {
-                if (it.key()->getRole() == Hunter)
-                {
-                    if (it.value() == 1)
-                        state = NoState;
-                    addOthers(it.key()->getPos(), -1000);
-                }
+                path.clear();
+                path.append(curPos);
+                path.append(it.key()->getPos());
+                targetPos = path[1];
             }
-//        }
+        }
     }
-
-
 
     if (state == FollowPathState)
     {
@@ -896,9 +871,13 @@ qreal Bot::getAngle() const
 
 void Bot::killkillkill()
 {
+    int killMoves = 50;// If target in the foeld of killMoves moves, it's dead
+    qreal instantKillRadius = 2 * cellSize;
     for (QHash<Bot *, int>::iterator it = enemiesVisible.begin(); it != enemiesVisible.end(); ++it)
     {
-        if (it.value() > 150)
+        if (distance(curPos, it.key()->getPos()) < instantKillRadius)
+            emit botKilled(it.key()->id);
+        if (it.value() > killMoves)
             emit botKilled(it.key()->id);
     }
 }
@@ -911,7 +890,7 @@ QImage Bot::getImage() const
 
     QColor botColor = QColor::fromHsv(id * 20, 200, 200);
     QColor botColorT = botColor;
-    botColorT.setAlpha(20);
+    botColorT.setAlpha(40);
     QPen circlePen;
     if (role == Hunter)
         circlePen = QPen(Qt::red, 3);
@@ -966,7 +945,7 @@ QImage Bot::getImage() const
 
     p.setPen(botColor);
     p.setBrush(botColor);
-    p.drawEllipse(targetPos, 5, 5);
+    //p.drawEllipse(targetPos, 5, 5);
 #ifdef DEBUGsfdf
     p.setPen(Qt::black);
     for (int i = 0; i < potential.size(); i += 4)
@@ -985,17 +964,6 @@ QImage Bot::getImage() const
         }
     }
 #endif
-    if (role == Runner)
-    {
-        for (int i = 0; i < potential.size(); i += 4)
-        {
-            for (int j = 0; j < potential[i].size(); j += 2)
-            {
-                if (potential[i][j] > -5000)
-                    p.drawText(cellSize * i, cellSize * j, QString::number(int(potential[i][j])));
-            }
-        }
-    }
     return ans;
 }
 

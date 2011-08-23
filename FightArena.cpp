@@ -82,6 +82,7 @@ void FightArena::moveBots()
 
 void FightArena::addBot(int id)
 {
+    qsrand(QTime::currentTime().msec());
     int rx = qrand() % width();
     int ry = qrand() % height();
     QPointF pos(rx, ry);
