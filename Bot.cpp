@@ -7,31 +7,31 @@
 #include "Bot.h"
 #include "tools.h"
 
-Bot::Bot(qreal moveSpeed_, qreal rotSpeed_, // in degrees
-         qreal fovDist_, qreal fovAngle_,// in degrees
-         QPointF startPos, qreal startAngle,// in degrees
-         int width, int height,
-         QVector<QVector<QPointF> > map_,
-         int id_):
-    moveSpeed(moveSpeed_), rotSpeed(degr2rad(rotSpeed_)),
-    fovDist(fovDist_), fovAngle(degr2rad(fovAngle_)),
-    curPos(startPos), curAngle(degr2rad(startAngle)),
-    map(map_),
-    id(id_),
-    fieldWidth(width), fieldHeight(height),
-    pivotOffset(8.0), cellSize(8.0),
-    control(AIControl),
-    state(NoState),
-    role(Runner),
-    targetPos(curPos)
+Bot::Bot(qreal moveSpeed__, qreal rotSpeed__, // in degrees
+         qreal fovDist__, qreal fovAngle__,// in degrees
+         QPointF startPos__, qreal startAngle__,// in degrees
+         int width__, int height__,
+         QVector<QVector<QPointF> > map__,
+         int id__):
+    fieldWidth_(width__), fieldHeight_(height__),
+    moveSpeed(moveSpeed__), rotSpeed(degr2rad(rotSpeed__)),
+    fovDist_(fovDist__), fovAngle_(degr2rad(fovAngle__)),
+    curPos_(startPos__), curAngle_(degr2rad(startAngle__)),
+    id_(id__),
+    pivotOffset_(8.0), cellSize_(8.0),
+    control_(AIControl),
+    state_(NoState),
+    role_(Runner),
+    map_(map__),
+    targetPos_(curPos_)
 {
     qsrand(10);
 
-    int cellsx = width / cellSize + 1;
-    int cellsy = height / cellSize + 1;
-    isDiscovered = QVector<QVector<bool> > (cellsx, QVector<bool> (cellsy, false));
-    int curcellx = curPos.x() / cellSize;
-    int curcelly = curPos.y() / cellSize;
+    int cellsx = width__ / cellSize_ + 1;
+    int cellsy = height__ / cellSize_ + 1;
+    isDiscovered_ = QVector<QVector<bool> > (cellsx, QVector<bool> (cellsy, false));
+    int curcellx = curPos_.x() / cellSize_;
+    int curcelly = curPos_.y() / cellSize_;
     for (int i = -1; i <= 1; i++)
     {
         for (int j = -1; j <= 1; j++)
@@ -39,27 +39,25 @@ Bot::Bot(qreal moveSpeed_, qreal rotSpeed_, // in degrees
             if (curcellx + i >= 0 && curcellx + i < cellsx &&
                 curcelly + j >= 0 && curcelly + j < cellsy)
             {
-                isDiscovered[curcellx + i][curcelly + j] = true;
+                isDiscovered_[curcellx + i][curcelly + j] = true;
             }
         }
     }
 
-    visits = QVector<QVector<int> > (cellsx, QVector<int> (cellsy, 0));
-    potential = QVector<QVector<qreal> > (cellsx, QVector<qreal> (cellsy, 0.0));
-    isReached = isDiscovered;
-    others = QVector<QVector<qreal> > (cellsx, QVector<qreal> (cellsy, 0.0));
+    visits_ = QVector<QVector<int> > (cellsx, QVector<int> (cellsy, 0));
+    potential_ = QVector<QVector<qreal> > (cellsx, QVector<qreal> (cellsy, 0.0));
 
-    QPointF p00 = QPointF(0, 0), p10 = QPointF(width - 1, 0), p01 = QPointF(0, height - 1), p11 = QPointF(width - 1, height - 1);
+    QPointF p00 = QPointF(0, 0), p10 = QPointF(width__ - 1, 0), p01 = QPointF(0, height__ - 1), p11 = QPointF(width__ - 1, height__ - 1);
     QVector<QPointF> edge;
     edge.append(p00);
     edge.append(p01);
     edge.append(p11);
     edge.append(p10);
     edge.append(p00);
-    map.append(edge);
+    map_.append(edge);
 
-    for (int i = 0; i < map.size(); i++)
-        mapPivots += getPivots(map[i], true);
+    for (int i = 0; i < map_.size(); i++)
+        mapPivots_ += getPivots(map_[i], true);
 }
 
 QPair<QPointF, QPointF> Bot::getVertexPivots(const QPointF &a, const QPointF &b, const QPointF &c) const
@@ -70,7 +68,7 @@ QPair<QPointF, QPointF> Bot::getVertexPivots(const QPointF &a, const QPointF &b,
 
     QPointF med = (dir1.p2() + dir2.p2()) / 2.0;
     QLineF dir = QLineF(b, med);
-    dir.setLength(pivotOffset);
+    dir.setLength(pivotOffset_);
     QPointF d1 = dir.p2(), d2 = dir.p1() - (dir.p2() - dir.p1());
 
     int angle = helper.angleTo(dir);
@@ -83,14 +81,14 @@ QPair<QPointF, QPointF> Bot::getVertexPivots(const QPointF &a, const QPointF &b,
 
 QVector<QPointF> Bot::getPivots(const QVector<QPointF> &v, bool mapPivots) const
 {
-    bool innerZone = isDiscovered[v[0].x() / cellSize][v[0].y() / cellSize];
+    bool innerZone = isDiscovered_[v[0].x() / cellSize_][v[0].y() / cellSize_];
     QVector<QPointF> ans;
     if (v.size() == 1)
     {
-        ans.append(v.front() - QPointF(pivotOffset, 0));
-        ans.append(v.front() - QPointF(0, pivotOffset));
-        ans.append(v.front() + QPointF(pivotOffset, 0));
-        ans.append(v.front() + QPointF(0, pivotOffset));
+        ans.append(v.front() - QPointF(pivotOffset_, 0));
+        ans.append(v.front() - QPointF(0, pivotOffset_));
+        ans.append(v.front() + QPointF(pivotOffset_, 0));
+        ans.append(v.front() + QPointF(0, pivotOffset_));
         return ans;
     }
     if (v.front() == v.back() && v.size() > 2) // the line is enclosed
@@ -104,16 +102,16 @@ QVector<QPointF> Bot::getPivots(const QVector<QPointF> &v, bool mapPivots) const
         // The line is not enclosed, so we'll use two points on its extension to the first and the last vertices.
         QLineF dir1 = QLineF(v[0], v[1]),
                dir2 = QLineF(v[v.size() - 1], v[v.size() - 2]);
-        dir1.setLength(pivotOffset);
-        dir2.setLength(pivotOffset);
+        dir1.setLength(pivotOffset_);
+        dir2.setLength(pivotOffset_);
         ans.push_back(dir1.p1() - (dir1.p2() - dir1.p1()));
         ans.push_back(dir2.p1() - (dir2.p2() - dir2.p1()));
 
         // And four on the perpendiculars to the first and the last segment(extended to both sides).
         QLineF norm1 = QLineF(v[0], v[1]).normalVector(),
                norm2 = QLineF(v[v.size() - 1], v[v.size() - 2]).normalVector();
-        norm1.setLength(pivotOffset);
-        norm2.setLength(pivotOffset);
+        norm1.setLength(pivotOffset_);
+        norm2.setLength(pivotOffset_);
         ans.push_back(norm1.p2());
         ans.push_back(norm1.p1() - (norm1.p2() - norm1.p1()));
         ans.push_back(norm2.p2());
@@ -173,12 +171,12 @@ void bfs(QVector<QVector<int> > *v, int stx, int sty, int cid) // Helper functio
 
 QVector<QVector<int> > Bot::determineConnComp() const
 {
-    QVector<QVector<int> > isVisited(isDiscovered.size(), QVector<int>(isDiscovered[0].size(), 0));
+    QVector<QVector<int> > isVisited(isDiscovered_.size(), QVector<int>(isDiscovered_[0].size(), 0));
     for (int i = 0; i < isVisited.size(); i++)// First, we marks _discovered_ nodes as "walls"
     {
         for (int j = 0; j < isVisited[0].size(); j++)
         {
-            if (isDiscovered[i][j])
+            if (isDiscovered_[i][j])
                 isVisited[i][j] = 1;
         }
     }
@@ -236,7 +234,7 @@ QVector<QPointF> optimizeWall(const QVector<QPointF> &w)// Optimising walls is m
 
 void Bot::updateVirtualWalls()
 {
-    virtualWalls.clear();
+    virtualWalls_.clear();
 
     QVector<QVector<int> > connComp = determineConnComp();
 
@@ -278,7 +276,7 @@ void Bot::updateVirtualWalls()
             {
 //                qDebug() << "oops";
             }
-            result.append(cellSize * QPointF(curx, cury));
+            result.append(cellSize_ * QPointF(curx, cury));
 
             int c = (curDir + 4) % 8;
             bool foundNew = false;
@@ -325,7 +323,7 @@ void Bot::updateVirtualWalls()
 #ifdef DEBUG
 //        qDebug() << "Result was " << result.size() << " optimized to " << optResult.size() << endl;
 #endif
-        virtualWalls.append(optResult);
+        virtualWalls_.append(optResult);
         curComp++;
     }
 }
@@ -334,10 +332,10 @@ QHash<QPointF, QVector<QPointF> > Bot::getGraph(const QPointF &startPos, const Q
 {
     QVector<QPointF> points;
 
-    points += mapPivots;
+    points += mapPivots_;
 
-    for (int i = 0; i < virtualWalls.size(); i++)
-        points += getPivots(virtualWalls[i]);
+    for (int i = 0; i < virtualWalls_.size(); i++)
+        points += getPivots(virtualWalls_[i]);
 
     points.push_back(startPos);
     points.push_back(targetPos);
@@ -347,11 +345,11 @@ dbgPivots = points;
 #endif
 
     QVector<QLineF> lines;
-    for (int i = 0; i < map.size(); i++)
+    for (int i = 0; i < map_.size(); i++)
     {
-        for (int j = 0; j < map[i].size() - 1; j++)
+        for (int j = 0; j < map_[i].size() - 1; j++)
         {
-            lines.push_back(QLineF(map[i][j], map[i][j + 1]));
+            lines.push_back(QLineF(map_[i][j], map_[i][j + 1]));
         }
     }
 #ifdef DEBUG
@@ -371,11 +369,11 @@ dbgPivots = points;
                     if (line.intersect(lines[l], &trash) == QLineF::BoundedIntersection)
                         wasIntersection = true;
             }
-            for (int l = 0; l < virtualWalls.size() && !wasIntersection; l++)
+            for (int l = 0; l < virtualWalls_.size() && !wasIntersection; l++)
             {
-                for (int e = 0; e < virtualWalls[l].size() - 1 && !wasIntersection; e++)
+                for (int e = 0; e < virtualWalls_[l].size() - 1 && !wasIntersection; e++)
                 {
-                    QLineF tline(virtualWalls[l][e], virtualWalls[l][e + 1]);
+                    QLineF tline(virtualWalls_[l][e], virtualWalls_[l][e + 1]);
                     if (line.intersect(tline, &trash) == QLineF::BoundedIntersection)
                         wasIntersection = true;
                 }
@@ -421,6 +419,7 @@ QVector<QPointF> Bot::getPath(const QPointF &startPos, const QPointF &targetPos)
                 cur = parent[cur];
             }
             ans.append(startPos);
+            std::reverse(ans.begin(), ans.end());
             break;
         }
 
@@ -452,7 +451,6 @@ QVector<QPointF> Bot::getPath(const QPointF &startPos, const QPointF &targetPos)
             }
         }
     }
-    std::reverse(ans.begin(), ans.end());
     return ans;
 }
 
@@ -460,20 +458,19 @@ bool Bot::exploreMap()
 {
     bool discovered = false;
 
-    qreal stx = curPos.x() - fovDist, fnx = curPos.x() + fovDist;
-    qreal sty = curPos.y() - fovDist, fny = curPos.y() + fovDist;
-    int stxp = qMax(0.0, stx / cellSize), fnxp = qMin(qreal(isDiscovered.size() - 1), fnx / cellSize);
-    int styp = qMax(0.0, sty / cellSize), fnyp = qMin(qreal(isDiscovered[0].size() - 1), fny / cellSize);
+    qreal stx = curPos_.x() - fovDist_, fnx = curPos_.x() + fovDist_;
+    qreal sty = curPos_.y() - fovDist_, fny = curPos_.y() + fovDist_;
+    int stxp = qMax(0.0, stx / cellSize_), fnxp = qMin(qreal(isDiscovered_.size() - 1), fnx / cellSize_);
+    int styp = qMax(0.0, sty / cellSize_), fnyp = qMin(qreal(isDiscovered_[0].size() - 1), fny / cellSize_);
     for (int i = stxp; i <= fnxp; i++)
     {
         for (int j = styp; j <= fnyp; j++)
         {
-            if (!isDiscovered[i][j] && fitsInPie(cellSize * QPointF(i, j), curPos, fovDist, curAngle, fovAngle))
+            if (!isDiscovered_[i][j] && fitsInPie(cellSize_ * QPointF(i, j), curPos_, fovDist_, curAngle_, fovAngle_))
             {
-                isReached[i][j] = true;
-                if (!wallBetween(curPos, cellSize * QPointF(i, j)))
+                if (!wallBetween(curPos_, cellSize_ * QPointF(i, j)))
                 {
-                    isDiscovered[i][j] = true;
+                    isDiscovered_[i][j] = true;
                     discovered = true;
                 }
             }
@@ -489,22 +486,22 @@ void Bot::makeManualMove()
     queryKeys(&pressed);
     if (pressed[Qt::Key_Left])
     {
-        curAngle += rotSpeed;
+        curAngle_ += rotSpeed;
     }
     if (pressed[Qt::Key_Right])
     {
-        curAngle -= rotSpeed;
+        curAngle_ -= rotSpeed;
     }
     if (pressed[Qt::Key_Up])
     {
-        QLineF dir = QLineF::fromPolar(moveSpeed, rad2degr(curAngle)).translated(curPos);
+        QLineF dir = QLineF::fromPolar(moveSpeed, rad2degr(curAngle_)).translated(curPos_);
         QPointF trash;
         bool intersects = false;
-        for (int i = 0; i < map.size() && !intersects; i++)
+        for (int i = 0; i < map_.size() && !intersects; i++)
         {
-            for (int j = 0; j < map[i].size() - 1 && !intersects; j++)
+            for (int j = 0; j < map_[i].size() - 1 && !intersects; j++)
             {
-                QLineF tmp(map[i][j], map[i][j + 1]);
+                QLineF tmp(map_[i][j], map_[i][j + 1]);
                 if (dir.intersect(tmp, &trash) == QLineF::BoundedIntersection)
                 {
                     intersects = true;
@@ -512,96 +509,76 @@ void Bot::makeManualMove()
                     qreal prod = dir.dx() * tmp.dx() + dir.dy() * tmp.dy();
                     int angle = dir.angleTo(tmp);
                     if ((0 <= angle && angle <= 180) ^ (prod > 0))
-                        curAngle -= rotSpeed;
+                        curAngle_ -= rotSpeed;
                     else
-                        curAngle += rotSpeed;
+                        curAngle_ += rotSpeed;
                 }
             }
         }
         if (!intersects)
         {
-            curPos += QLineF::fromPolar(moveSpeed, rad2degr(curAngle)).p2();
+            curPos_ += QLineF::fromPolar(moveSpeed, rad2degr(curAngle_)).p2();
         }
     }
 }
-/*
-bool Bot::wallOnPathTo(const QPointF &b) const
-{
-    QLineF line(curPos, b);
-    QPointF trash;
-    for (int i = 0; i < map.size(); i++)
-    {
-        for (int j = 0; j < map[i].size() - 1; j++)
-        {
-            if (QLineF(map[i][j], map[i][j + 1]).intersect(line, &trash) == QLineF::BoundedIntersection)
-            {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-*/
+
 void Bot::updatePotential()
 {
-    updateOthers();
-
     double minPotential = -5000.0; // potential for undiscovered points
-    potential.fill(QVector<double> (potential[0].size(), minPotential));
+    potential_.fill(QVector<double> (potential_[0].size(), minPotential));
 
-    int randomAffectionRadius = fovDist / 2.0; // Some points will be chosen randomly
-    int affectionRadius = fovDist / 5.0; // And some will be chosen definetely
+    int randomAffectionRadius = fovDist_ / 2.0; // Some points will be chosen randomly
+    int affectionRadius = fovDist_ / 5.0; // And some will be chosen definetely
     int tries = 20;
-    for (int i = 0; i < potential.size(); i++)
+    for (int i = 0; i < potential_.size(); i++)
     {
-        for (int j = 0; j < potential[0].size(); j++)
+        for (int j = 0; j < potential_[0].size(); j++)
         {
-            if (!isDiscovered[i][j])
+            if (!isDiscovered_[i][j])
                 continue;
-            if (!(isDiscovered[i][j] &&
-                i > 0 && i < potential.size() - 1 &&
-                j > 0 && j < potential[0].size() - 1 &&
-                isDiscovered[i - 1][j] && isDiscovered[i + 1][j] && //
-                isDiscovered[i][j - 1] && isDiscovered[i][j + 1]))
+            if (!(isDiscovered_[i][j] &&
+                i > 0 && i < potential_.size() - 1 &&
+                j > 0 && j < potential_[0].size() - 1 &&
+                isDiscovered_[i - 1][j] && isDiscovered_[i + 1][j] && //
+                isDiscovered_[i][j - 1] && isDiscovered_[i][j + 1]))
             {
                 continue;
             }
-            potential[i][j] = 0.0;
-            int potRadius = affectionRadius / cellSize;
+            potential_[i][j] = 0.0;
+            int potRadius = affectionRadius / cellSize_;
             for (int q = - potRadius; q < potRadius; q++)
             {
-                if (i + q < 0 || i + q >= potential.size())
+                if (i + q < 0 || i + q >= potential_.size())
                     continue;
                 for (int w = - potRadius; w < potRadius; w++)
                 {
-                    if (j + w < 0 || j + w >= potential[0].size())
+                    if (j + w < 0 || j + w >= potential_[0].size())
                         continue;
-                    if (!isDiscovered[i + q][j + w])
+                    if (!isDiscovered_[i + q][j + w])
                     {
-                        if (!wallBetween(cellSize * QPointF(q + i, w + j), cellSize * QPointF(i, j)))
-                            potential[i][j] += 10.0 / (qAbs(q) + 0.01) + 10.0 / (qAbs(w) + 0.01);
+                        if (!wallBetween(cellSize_ * QPointF(q + i, w + j), cellSize_ * QPointF(i, j)))
+                            potential_[i][j] += 10.0 / (qAbs(q) + 0.01) + 10.0 / (qAbs(w) + 0.01);
                     }
                 }
             }
 
-            int potRandRadius = randomAffectionRadius / cellSize;
+            int potRandRadius = randomAffectionRadius / cellSize_;
             for (int t = 0; t < tries; t++)
             {
                 int tx = rand() % (2 * potRandRadius);
                 int ty = rand() % (2 * potRandRadius);
                 int cx = i - potRandRadius + tx;
                 int cy = j - potRandRadius + ty;
-                if (cx >= 0 && cx < potential.size() &&
-                    cy >= 0 && cy < potential[0].size() &&
-                    !isDiscovered[cx][cy])
+                if (cx >= 0 && cx < potential_.size() &&
+                    cy >= 0 && cy < potential_[0].size() &&
+                    !isDiscovered_[cx][cy])
                 {
-                    if (!wallBetween(cellSize * QPointF(cx, cy), cellSize * QPointF(i, j)))
-                        potential[i][j] += 10.0 / (qAbs(i - cx) + 0.01) + 10.0 / (qAbs(j - cy) + 0.01);
+                    if (!wallBetween(cellSize_ * QPointF(cx, cy), cellSize_ * QPointF(i, j)))
+                        potential_[i][j] += 10.0 / (qAbs(i - cx) + 0.01) + 10.0 / (qAbs(j - cy) + 0.01);
                 }
 
             }
-            potential[i][j] -= visits[i][j];
-            potential[i][j] += others[i][j];
+            potential_[i][j] -= visits_[i][j];
         }
     }
 }
@@ -610,21 +587,21 @@ QPointF Bot::getAITarget() const
 {
     int mi = -1, mj = -1;
     // Step 1. Searching for the point with the hightst potential in the given radius.
-    int searchRadius = fovDist;
-    for (int curRadius = searchRadius; curRadius <= fieldWidth; curRadius += searchRadius)
+    int searchRadius = fovDist_;
+    for (int curRadius = searchRadius; curRadius <= fieldWidth_; curRadius += searchRadius)
     {
-        int sx = qMax(0, int((curPos.x() - curRadius) / cellSize));
-        int ex = qMin(potential.size(), int((curPos.x() + curRadius) / cellSize));
-        int sy = qMax(0, int((curPos.y() - curRadius) / cellSize));
-        int ey = qMin(potential[0].size(), int((curPos.y() + curRadius) / cellSize));
+        int sx = qMax(0, int((curPos_.x() - curRadius) / cellSize_));
+        int ex = qMin(potential_.size(), int((curPos_.x() + curRadius) / cellSize_));
+        int sy = qMax(0, int((curPos_.y() - curRadius) / cellSize_));
+        int ey = qMin(potential_[0].size(), int((curPos_.y() + curRadius) / cellSize_));
 
         for (int i = sx; i < ex; i++)
         {
             for (int j = sy; j < ey; j++)
             {
-                if (isDiscovered[i][j] && (mi == -1 || mj == -1 || potential[i][j] > potential[mi][mj]))
+                if (isDiscovered_[i][j] && (mi == -1 || mj == -1 || potential_[i][j] > potential_[mi][mj]))
                 {
-                    if (!wallBetween(curPos, cellSize * QPointF(i, j)))
+                    if (!wallBetween(curPos_, cellSize_ * QPointF(i, j)))
                     {
                         mi = i;
                         mj = j;
@@ -632,16 +609,16 @@ QPointF Bot::getAITarget() const
                 }
             }
         }
-        if (potential[mi][mj] > 0.0) // if point's potential is less than zero, this point has already been visited.
-            return cellSize * QPointF(mi, mj);
+        if (potential_[mi][mj] > 0.0) // if point's potential is less than zero, this point has already been visited.
+            return cellSize_ * QPointF(mi, mj);
     }
     Q_ASSERT(mi != -1);
     // Step 2. Searching for the point with the higwst potential on the full map
-    for (int i = 0; i < potential.size(); i++)
+    for (int i = 0; i < potential_.size(); i++)
     {
-        for (int j = 0; j < potential[0].size(); j++)
+        for (int j = 0; j < potential_[0].size(); j++)
         {
-            if (isDiscovered[i][j] && (mi == -1 || mj == -1 || potential[i][j] > potential[mi][mj]))
+            if (isDiscovered_[i][j] && (mi == -1 || mj == -1 || potential_[i][j] > potential_[mi][mj]))
             {
                 mi = i;
                 mj = j;
@@ -649,78 +626,78 @@ QPointF Bot::getAITarget() const
         }
     }
 
-    return cellSize * QPointF(mi, mj);
+    return cellSize_ * QPointF(mi, mj);
 }
 
 void Bot::makeAIMove()
 {
-    if (role == Hunter)
+    if (role_ == Hunter)
     {
-        for (QHash<Bot *, int>::iterator it = enemiesVisible.begin(); it != enemiesVisible.end(); ++it)
+        for (QHash<Bot *, int>::iterator it = enemiesVisible_.begin(); it != enemiesVisible_.end(); ++it)
         {
-            state = FollowPathState;
-            if (it.key()->getRole() == Hunter)
+            state_ = FollowPathState;
+            if (it.key()->role() == Hunter)
             {
-                path.clear();
-                path.append(curPos);
-                path.append(it.key()->getPos());
-                targetPos = path[1];
-                break; // First - Hunters, then Runners
+                path_.clear();
+                path_.append(curPos_);
+                path_.append(it.key()->pos());
+                targetPos_ = path_[1];
+                break; // Hunters have higher kill priority than Runners
             }
             else
             {
-                path.clear();
-                path.append(curPos);
-                path.append(it.key()->getPos());
-                targetPos = path[1];
+                path_.clear();
+                path_.append(curPos_);
+                path_.append(it.key()->pos());
+                targetPos_ = path_[1];
             }
         }
     }
 
-    if (state == FollowPathState)
+    if (state_ == FollowPathState)
     {
-        if (path.size() == 0) // We haven't found a path(or it is incorrect)
+        if (path_.size() == 0) // We haven't found the path(or it is incorrect)
         {
-            addVisitsCount(targetPos, 50);// We lower target point's potential, and its probality to be chosen again
-            state = NoState;// Another chance
+            addVisitsCount(targetPos_, 50);// We lower the target point's potential, and its probality to be chosen again
+            state_ = NoState;// Another chance
         }
         else
         {
-            addVisitsCount(curPos);
-            if (path.size() <= 1)
+            addVisitsCount(curPos_);
+            if (path_.size() <= 1)
             {
                 if (rand() % 2 == 0)
-                    state = PointExploreStateCW;
+                    state_ = PointExploreStateCW;
                 else
-                    state = PointExploreStateCCW;
+                    state_ = PointExploreStateCCW;
                 return;
             }
-            QPointF a = path[0];
-            QPointF b = path[1];
+            QPointF a = path_[0];
+            QPointF b = path_[1];
             bool came = makeMoveByLine(a, b);
             if (came) // we have passed a, so we can remove it from the path
-                path.pop_front();
+                path_.pop_front();
         }
     }
-    else if (state == NoState)
+    else if (state_ == NoState)
     {
-        targetPos = getAITarget();
-        path = getPath(curPos, targetPos);
-        state = FollowPathState;
+        targetPos_ = getAITarget();
+        path_ = getPath(curPos_, targetPos_);
+        state_ = FollowPathState;
     }
-    else if (state == PointExploreStateCW || state == PointExploreStateCCW)
+    else if (state_ == PointExploreStateCW || state_ == PointExploreStateCCW)
     {
         int stopProbality = 90;// The parameter to control rotation time.
         if (qrand() % 100 > stopProbality)
         {
-            state = NoState;
+            state_ = NoState;
         }
         else
         {
-            if (state == PointExploreStateCW)
-                curAngle -= rotSpeed;
+            if (state_ == PointExploreStateCW)
+                curAngle_ -= rotSpeed;
             else
-                curAngle += rotSpeed;
+                curAngle_ += rotSpeed;
         }
     }
 }
@@ -754,57 +731,57 @@ bool Bot::makeMoveByLine(const QPointF &a, const QPointF &b)
     QLineF dir(a, b);
     qreal angle = degr2rad(dir.angle());
 
-    while (curAngle + 2 * PI() < 0)
-        curAngle += 2 * PI();
-    while (curAngle - 2 * PI() >= 0)
-        curAngle -= 2 * PI();
+    while (curAngle_ + 2 * PI() < 0)
+        curAngle_ += 2 * PI();
+    while (curAngle_ - 2 * PI() >= 0)
+        curAngle_ -= 2 * PI();
 
-    if (curAngle == angle)
+    if (curAngle_ == angle)
     {
-        QLineF delta = QLineF::fromPolar(moveSpeed, rad2degr(curAngle));
-        QPointF newPos = curPos + delta.p2();
+        QLineF delta = QLineF::fromPolar(moveSpeed, rad2degr(curAngle_));
+        QPointF newPos = curPos_ + delta.p2();
         if (isOnSegment(newPos, a, b))
-            curPos = newPos;
+            curPos_ = newPos;
         else
         {
-            curPos = b;
+            curPos_ = b;
             return true;
         }
     }
     else
     {
         bool ccw;//counter-clockwise
-        if (angle > curAngle)
+        if (angle > curAngle_)
         {
-            if (curAngle + PI() > angle)
+            if (curAngle_ + PI() > angle)
                 ccw = true;
             else
                 ccw = false;
         }
         else
         {
-            if (angle + PI() > curAngle)
+            if (angle + PI() > curAngle_)
                 ccw = false;
             else
                 ccw = true;
         }
         if (ccw)
         {
-            if (angle < curAngle)
+            if (angle < curAngle_)
                 angle += 2 * PI();
-            if (curAngle + rotSpeed >= angle)
-                curAngle = angle;
+            if (curAngle_ + rotSpeed >= angle)
+                curAngle_ = angle;
             else
-                curAngle += rotSpeed;
+                curAngle_ += rotSpeed;
         }
         else
         {
-            if (curAngle < angle)
-                curAngle += 2 * PI();
-            if (curAngle - rotSpeed <= angle)
-                curAngle = angle;
+            if (curAngle_ < angle)
+                curAngle_ += 2 * PI();
+            if (curAngle_ - rotSpeed <= angle)
+                curAngle_ = angle;
             else
-                curAngle -= rotSpeed;
+                curAngle_ -= rotSpeed;
         }
     }
     return false;
@@ -813,37 +790,37 @@ bool Bot::makeMoveByLine(const QPointF &a, const QPointF &b)
 void Bot::addVisitsCount(const QPointF &p, qreal value)
 {
     int affectionRadius = 4; // in grid nodes
-    int cx = p.x() / cellSize, cy = p.y() / cellSize;
+    int cx = p.x() / cellSize_, cy = p.y() / cellSize_;
     for (int q = -affectionRadius; q <= affectionRadius; q++)
     {
-        if (cx + q < 0 || cx + q >= potential.size())
+        if (cx + q < 0 || cx + q >= potential_.size())
             continue;
         for (int w = -affectionRadius; w <= affectionRadius; w++)
         {
-            if (cy + w < 0 || cy + w >= potential[0].size())
+            if (cy + w < 0 || cy + w >= potential_[0].size())
                 continue;
-            if (!wallBetween(p, cellSize * QPointF(cx + q, cy + w)))
-                visits[cx + q][cy + w] += value / (qAbs(q) + 0.1) + value / (qAbs(w) + 0.1);
+            if (!wallBetween(p, cellSize_ * QPointF(cx + q, cy + w)))
+                visits_[cx + q][cy + w] += value / (qAbs(q) + 0.1) + value / (qAbs(w) + 0.1);
         }
     }
-    visits[cx][cy] += value;
+    visits_[cx][cy] += value;
 }
 
 void Bot::toggleRole()
 {
-    if (role == Hunter)
-        role = Runner;
+    if (role_ == Hunter)
+        role_ = Runner;
     else
-        role = Hunter;
+        role_ = Hunter;
 }
 
 void Bot::toggleControl()
 {
-    state = NoState;
-    if (control == ManualContol)
-        control = AIControl;
+    state_ = NoState;
+    if (control_ == ManualContol)
+        control_ = AIControl;
     else
-        control = ManualContol;
+        control_ = ManualContol;
 }
 
 void Bot::makeMove()
@@ -851,48 +828,48 @@ void Bot::makeMove()
     exploreMap();
     updateEnemies();
     updatePotential();
-    if (role == Hunter)
+    if (role_ == Hunter)
         killkillkill();
-    if (control == ManualContol)
+    if (control_ == ManualContol)
         makeManualMove();
     else
         makeAIMove();
 }
 
-QPointF Bot::getPos() const
+QPointF Bot::pos() const
 {
-    return curPos;
+    return curPos_;
 }
 
-qreal Bot::getAngle() const
+qreal Bot::angle() const
 {
-    return curAngle;
+    return curAngle_;
 }
 
 void Bot::killkillkill()
 {
-    int killMoves = 50;// If target in the foeld of killMoves moves, it's dead
-    qreal instantKillRadius = 2 * cellSize;
-    for (QHash<Bot *, int>::iterator it = enemiesVisible.begin(); it != enemiesVisible.end(); ++it)
+    int killMoves = 50;// If target in the field of killMoves moves, it's dead
+    qreal instantKillRadius = 2 * cellSize_;
+    for (QHash<Bot *, int>::iterator it = enemiesVisible_.begin(); it != enemiesVisible_.end(); ++it)
     {
-        if (distance(curPos, it.key()->getPos()) < instantKillRadius)
-            emit botKilled(it.key()->id);
+        if (distance(curPos_, it.key()->pos()) < instantKillRadius)
+            emit botKilled(it.key()->id());
         if (it.value() > killMoves)
-            emit botKilled(it.key()->id);
+            emit botKilled(it.key()->id());
     }
 }
 
-QImage Bot::getImage() const
+QImage Bot::image() const
 {
-    QImage ans(fieldWidth, fieldHeight, QImage::Format_ARGB32);
+    QImage ans(fieldWidth_, fieldHeight_, QImage::Format_ARGB32);
     ans.fill(0);
     QPainter p(&ans);
 
-    QColor botColor = QColor::fromHsv(id * 20, 200, 200);
+    QColor botColor = QColor::fromHsv(id_ * 20, 200, 200);
     QColor botColorT = botColor;
     botColorT.setAlpha(40);
     QPen circlePen;
-    if (role == Hunter)
+    if (role_ == Hunter)
         circlePen = QPen(Qt::red, 3);
     else
         circlePen = QPen(Qt::green, 3);
@@ -904,24 +881,24 @@ QImage Bot::getImage() const
     triangle << QPointF(-markWidth / 2, markHeight / 2) << QPointF(-markWidth / 2, -markHeight / 2) << QPointF(markWidth / 2, 0);
     triangle << triangle.front();
     QMatrix rotM;
-    rotM.translate(curPos.x(), curPos.y());
-    rotM.rotate(-rad2degr(curAngle));
+    rotM.translate(curPos_.x(), curPos_.y());
+    rotM.rotate(-rad2degr(curAngle_));
     triangle = rotM.map(triangle);
     posMark.addPolygon(triangle);
 
     p.setPen(Qt::transparent);
     p.setBrush(Qt::transparent);
-    p.drawRect(0, 0, fieldWidth, fieldHeight);
+    p.drawRect(0, 0, fieldWidth_, fieldHeight_);
 
     p.setPen(botColorT);
     p.setBrush(botColorT);
-    for (int i = 0; i < isDiscovered.size(); i++)
+    for (int i = 0; i < isDiscovered_.size(); i++)
     {
-        for (int j = 0; j < isDiscovered[i].size(); j++)
+        for (int j = 0; j < isDiscovered_[i].size(); j++)
         {
-            if (isDiscovered[i][j])
+            if (isDiscovered_[i][j])
             {
-                p.drawEllipse(cellSize * QPointF(i, j), cellSize, cellSize);
+                p.drawEllipse(cellSize_ * QPointF(i, j), cellSize_, cellSize_);
             }
         }
     }
@@ -932,20 +909,20 @@ QImage Bot::getImage() const
 
     p.setBrush(Qt::transparent);
     p.setPen(circlePen);
-    p.drawEllipse(curPos, 20, 20);
+    p.drawEllipse(curPos_, 20, 20);
 
     p.setPen(Qt::black);
     p.setPen(Qt::black);
-    p.drawText(curPos + QPointF(5, 5), QString::number(id));
+    p.drawText(curPos_ + QPointF(5, 5), QString::number(id_));
 
 
     p.setPen(Qt::magenta);// Drawing the FOV
     p.setBrush(Qt::transparent);
-    p.drawPie(QRectF(curPos - QPointF(fovDist, fovDist), curPos + QPointF(fovDist, fovDist)), rad2degr(curAngle - fovAngle / 2) * 16, rad2degr(fovAngle) * 16);
+    p.drawPie(QRectF(curPos_ - QPointF(fovDist_, fovDist_), curPos_ + QPointF(fovDist_, fovDist_)), rad2degr(curAngle_ - fovAngle_ / 2) * 16, rad2degr(fovAngle_) * 16);
 
     p.setPen(botColor);
     p.setBrush(botColor);
-    //p.drawEllipse(targetPos, 5, 5);
+    p.drawEllipse(targetPos_, 5, 5);
 #ifdef DEBUGsfdf
     p.setPen(Qt::black);
     for (int i = 0; i < potential.size(); i += 4)
@@ -967,46 +944,35 @@ QImage Bot::getImage() const
     return ans;
 }
 
-qreal Bot::getFOVAngle() const
+qreal Bot::fovAngle() const
 {
-    return fovAngle;
+    return fovAngle_;
 }
 
-qreal Bot::getFOVDistance() const
+qreal Bot::fovDistance() const
 {
-    return fovDist;
+    return fovDist_;
 }
 
-int Bot::getID() const
+int Bot::id() const
 {
-    return id;
+    return id_;
 }
 
-void Bot::updateOthers()
+int Bot::role() const
 {
-    for (int i = 0; i < others.size(); i++)
-    {
-        for (int j = 0; j < others[0].size(); j++)
-        {
-            others[i][j] *= 0.9;
-        }
-    }
-}
-
-int Bot::getRole() const
-{
-    return role;
+    return role_;
 }
 
 bool Bot::wallBetween(const QPointF &a, const QPointF &b) const
 {
     QLineF line(a, b);
     QPointF trash;
-    for (int i = 0; i < map.size(); i++)
+    for (int i = 0; i < map_.size(); i++)
     {
-        for (int j = 0; j < map[i].size() - 1; j++)
+        for (int j = 0; j < map_[i].size() - 1; j++)
         {
-            if (QLineF(map[i][j], map[i][j + 1]).intersect(line, &trash) == QLineF::BoundedIntersection)
+            if (QLineF(map_[i][j], map_[i][j + 1]).intersect(line, &trash) == QLineF::BoundedIntersection)
             {
                 return true;
             }
@@ -1024,30 +990,10 @@ void Bot::updateEnemies()
         ev.insert(enemies[i], 1);
     for (QHash<Bot *, int>::iterator it = ev.begin(); it != ev.end(); ++it)
     {
-        it.value() += enemiesVisible[it.key()];
+        it.value() += enemiesVisible_[it.key()];
     }
-    enemiesVisible = ev;
+    enemiesVisible_ = ev;
 }
-
-void Bot::addOthers(const QPointF &p, double c)
-{
-    double affectionRadius = fovDist;
-    int cx = p.x() / cellSize;
-    int cy = p.y() / cellSize;
-    int r = affectionRadius / cellSize;
-    for (int q = -r; q < r; q++)
-    {
-        if (cx + q < 0 || cx + q >= potential.size())
-            continue;
-        for (int w = -r; w < r; w++)
-        {
-            if (cy + w < 0 || cy + w >= potential[0].size())
-                continue;
-            others[cx + q][cy + w] += c  - c / (2 * r) * (qAbs(q) + qAbs(w));
-        }
-    }
-}
-
 
 
 

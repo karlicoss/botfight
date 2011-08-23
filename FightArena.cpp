@@ -57,7 +57,7 @@ void FightArena::paintEvent(QPaintEvent *)
 
     for (int i = 0; i < bots.size(); i++)
     {
-        p.drawImage(QPointF(0, 0), bots[i]->getImage());
+        p.drawImage(QPointF(0, 0), bots[i]->image());
     }
     QPainter q(this);
     q.drawImage(QPointF(0, 0), img);// And finally..Drawing the whole image on the widget.
@@ -103,7 +103,7 @@ void FightArena::deleteBot(int id)
 {
     for (int i = 0; i < bots.size(); i++)
     {
-        if (bots[i]->getID() == id)
+        if (bots[i]->id() == id)
         {
             delete bots[i];
             bots.remove(i);
@@ -118,7 +118,7 @@ void FightArena::toggleBotControl(int id)
 {
     for (int i = 0; i < bots.size(); i++)
     {
-        if (bots[i]->getID() == id)
+        if (bots[i]->id() == id)
         {
             bots[i]->toggleControl();
         }
@@ -129,7 +129,7 @@ void FightArena::toggleBotRole(int id)
 {
     for (int i = 0; i < bots.size(); i++)
     {
-        if (bots[i]->getID() == id)
+        if (bots[i]->id() == id)
         {
             bots[i]->toggleRole();
         }
@@ -142,8 +142,8 @@ void FightArena::giveBots(Bot* bot, QVector<Bot *> *result)
     {
         if (bots[i] == bot)
             continue;
-        if (fitsInPie(bots[i]->getPos(), bot->getPos(), bot->getFOVDistance(), bot->getAngle(), bot->getFOVAngle()) &&
-            !bot->wallBetween(bot->getPos(), bots[i]->getPos()))
+        if (fitsInPie(bots[i]->pos(), bot->pos(), bot->fovDistance(), bot->angle(), bot->fovAngle()) &&
+            !bot->wallBetween(bot->pos(), bots[i]->pos()))
         {
             result->push_back(bots[i]);
         }
